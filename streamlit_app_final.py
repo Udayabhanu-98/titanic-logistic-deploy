@@ -1,48 +1,67 @@
+# streamlit_app_final.py with fixed logic after kernel reset
 
+fixed_streamlit_code = '''
 import streamlit as st
 import pandas as pd
 import joblib
 import numpy as np
 
-# Load the trained model and scaler
+# Load model and scaler
 model = joblib.load("logistic_model.pkl")
-scaler = joblib.load("scaler.pkl")  # This should contain StandardScaler used for Age and Parch
+scaler = joblib.load("scaler.pkl")
 
 st.title("🚢 Titanic Survival Predictor (Final Features)")
-st.write("Enter passenger details to predict survival.")
 
-# User Inputs
-pclass = st.selectbox("Passenger Class (1 = 1st, 2 = 2nd, 3 = 3rd)", [1, 2, 3])
+# Inputs
+pclass = st.selectbox("Passenger Class", [1, 2, 3])
 age = st.number_input("Age", min_value=0.0, max_value=100.0, value=30.0)
-parch = st.number_input("Number of Parents/Children Aboard (Parch)", min_value=0, max_value=10, value=0)
+parch = st.number_input("Parents/Children Aboard (Parch)", min_value=0, max_value=10, value=0)
 sex = st.selectbox("Sex", ["male", "female"])
-title = st.selectbox("Title", ["Master", "Miss", "Mme", "Ms"])
+title = st.selectbox("Title", ["Mr", "Miss", "Master", "Mme", "Ms", "Dr", "Lady", "Col", "Capt"])
 
-# Manual one-hot encoding
+# Encode sex
+sex_male = 1 if sex == "male" else 0
+
+# Encode title only if it's in trained features
+expected_title_cols = ['Title_Master', 'Title_Miss', 'Title_Mme', 'Title_Ms']
+title_map = {
+    "Master": "Title_Master",
+    "Miss": "Title_Miss",
+    "Mme": "Title_Mme",
+    "Ms": "Title_Ms"
+}
+title_encoded = {col: 0 for col in expected_title_cols}
+if title in title_map:
+    title_encoded[title_map[title]] = 1
+
+# Scale age and parch
+scaled_vals = scaler.transform(pd.DataFrame([[age, parch]], columns=["Age", "Parch"]))
+age_scaled, parch_scaled = scaled_vals[0]
+
+# Construct input
 input_dict = {
     "Pclass": pclass,
-    "Sex_male": 1 if sex == "male" else 0,
-    "Title_Master": 1 if title == "Master" else 0,
-    "Title_Miss": 1 if title == "Miss" else 0,
-    "Title_Mme": 1 if title == "Mme" else 0,
-    "Title_Ms": 1 if title == "Ms" else 0
+    "Age": age_scaled,
+    "Parch": parch_scaled,
+    "Sex_male": sex_male,
+    **title_encoded
 }
 
-# Add Age and Parch, then scale them
-input_df = pd.DataFrame([{
-    "Age": age,
-    "Parch": parch
-}])
-scaled_vals = scaler.transform(input_df)
-input_dict["Age"] = scaled_vals[0][0]
-input_dict["Parch"] = scaled_vals[0][1]
-
-# Final input dataframe
+# Enforce column order
 final_input = pd.DataFrame([input_dict])
+final_input = final_input[['Pclass', 'Age', 'Parch', 'Sex_male', 'Title_Master', 'Title_Miss', 'Title_Mme', 'Title_Ms']]
 
 # Predict
 if st.button("Predict Survival"):
     pred = model.predict(final_input)[0]
     result = "🟩 Survived" if pred == 1 else "🟥 Did Not Survive"
-    st.subheader("Prediction")
+    st.subheader("Prediction Result")
     st.success(result)
+'''
+
+# Save the updated file
+streamlit_final_path = "/mnt/data/streamlit_app_final.py"
+with open(streamlit_final_path, "w") as f:
+    f.write(fixed_streamlit_code)
+
+streamlit_final_path
